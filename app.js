@@ -132,13 +132,12 @@ function foldSvg(family, stage, instance = "main") {
   // black fragments seen in earlier generated diagrams.
   const baseB = layerState.packetOutline;
   const topA = layerState.topOutline;
-  const bounds = baseB.reduce((box, point) => ({
-    minX: Math.min(box.minX, point.x), maxX: Math.max(box.maxX, point.x),
-    minY: Math.min(box.minY, point.y), maxY: Math.max(box.maxY, point.y)
-  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+  // Keep every stage in the same folded-plane coordinate system. Previously the
+  // diagram was re-fit to each packet's bounds, so later folds drifted toward
+  // the middle instead of staying on top of the previous stage.
   const scale = 76;
-  const offsetX = 12 - bounds.minX * scale;
-  const offsetY = 88 - bounds.maxY * scale;
+  const offsetX = 12;
+  const offsetY = 12;
   const scalePoint = point => ({ x: offsetX + point.x * scale, y: offsetY + point.y * scale });
   const pathFor = polygon => polygon.map((point, index) => {
     const scaled = scalePoint(point);
@@ -153,9 +152,10 @@ function foldSvg(family, stage, instance = "main") {
     // region. If A completely covers B, its translucent fill still indicates a
     // top flap without inventing internal edges.
     const aMarkup = topA.length >= 3
-      ? `<path class="top-paper" data-paper-layer="A-top" d="${pathFor(topA)}" fill="#5d9b69" fill-opacity=".24" stroke="#17211d" stroke-width="2" stroke-linejoin="round"/>`
+      ? `<path class="top-paper" data-paper-layer="A-top" d="${pathFor(topA)}" fill="#5d9b69" fill-opacity=".5" stroke="#17211d" stroke-width="2" stroke-linejoin="round"/>`
       : "";
-    stackedPaper = `<g class="paper-stack" data-fold-result="${stage}"><path class="under-paper" data-paper-layer="B-under" d="${pathFor(baseB)}" fill="#70aa7b" stroke="#17211d" stroke-width="2" stroke-linejoin="round"/>${aMarkup}</g>`;
+    const bOutline = layerState.baseOutline.length >= 3 ? layerState.baseOutline : baseB;
+    stackedPaper = `<g class="paper-stack" data-fold-result="${stage}"><path class="under-paper" data-paper-layer="B-under" d="${pathFor(bOutline)}" fill="#70aa7b" stroke="#17211d" stroke-width="2" stroke-linejoin="round"/>${aMarkup}<path class="packet-outline" data-paper-layer="packet-outline" d="${pathFor(baseB)}" fill="none" stroke="#17211d" stroke-width="2" stroke-linejoin="round"/></g>`;
   }
 
   if (operation) {
