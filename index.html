@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="摺痕推理 Lab：以逐步解題與即時回饋，練習從折紙步驟推理展開後的摺痕。" />
+  <meta name="theme-color" content="#f7f5eb" />
+  <title>摺痕推理 Lab — Fold Logic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#practice">跳到練習題</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="摺痕推理 Lab 首頁">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>摺痕推理 <em>LAB</em></span>
+    </a>
+    <nav aria-label="主要導覽">
+      <a class="nav-link active" href="#practice">練習</a>
+      <a class="nav-link" href="#method">方法</a>
+      <a class="nav-link" href="#record">紀錄</a>
+    </nav>
+    <button class="icon-button settings-trigger" type="button" aria-label="開啟偏好設定" aria-expanded="false" aria-controls="settings-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Zm8.1 3.6 1.6-1.24-1.7-2.94-1.9.77a7.3 7.3 0 0 0-1.4-.82L16.4 5h-3.4l-.3 2.77c-.5.2-1 .47-1.44.8l-1.88-.75-1.7 2.94L9.25 12a7 7 0 0 0 0 1.65l-1.57 1.24 1.7 2.94 1.88-.75c.44.33.93.6 1.44.8l.3 2.77h3.4l.3-2.77c.5-.2.98-.47 1.4-.8l1.9.75 1.7-2.94-1.6-1.24c.1-.54.1-1.1 0-1.65Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" /></svg>
+    </button>
+  </header>
+
+  <aside class="settings-panel" id="settings-panel" aria-label="練習偏好" hidden>
+    <div class="settings-heading"><span>練習偏好</span><button class="text-button settings-close" type="button">關閉</button></div>
+    <label class="field-label" for="difficulty-select">難度</label>
+    <select id="difficulty-select">
+      <option value="starter">起步：3 折 · 近中央鏡像</option>
+      <option value="standard" selected>進階：4 折 · 偏心折軸</option>
+      <option value="challenge">菁英：5 折 · 雙重偏心</option>
+    </select>
+    <form class="seed-form" id="seed-form" aria-describedby="seed-status">
+      <label class="field-label" for="seed-input">重現題目</label>
+      <div class="seed-input-row"><input id="seed-input" name="seed" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="26" placeholder="FL-N-XXXXXXXXXX" aria-label="輸入題目碼以重現題目" /><button type="submit">載入</button></div>
+      <p class="seed-status" id="seed-status" role="status">輸入題目碼可重現同一題。</p>
+    </form>
+    <label class="toggle-row" for="reduced-motion"><span><strong>減少動態效果</strong><small>適合專注閱讀</small></span><input id="reduced-motion" type="checkbox" /></label>
+  </aside>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live-dot"></span> SPATIAL REASONING · PRACTICE SET</p>
+        <h1 id="page-title">讓每一次翻折<br /><span>回到它原來的位置。</span></h1>
+        <p class="hero-description">觀察折疊順序，預測紙張攤平後的摺痕。不是猜答案，而是練習<strong>反射、對稱與倒序展開</strong>。</p>
+        <div class="principle-pills" aria-label="本題練習概念">
+          <span>01 · 倒序還原</span><span>02 · 鏡像對稱</span><span>03 · 位置追蹤</span>
+        </div>
+      </div>
+      <aside class="session-card" aria-label="本次練習統計">
+        <div class="session-card-top"><span class="mono">TODAY / SESSION</span><span class="calendar-mark" id="today-mark">07·24</span></div>
+        <div class="session-numbers">
+          <div><strong id="streak-number">0</strong><span>連續解題</span></div>
+          <div><strong id="accuracy-number">—</strong><span>正確率</span></div>
+        </div>
+        <div class="mini-progress"><span id="progress-fill"></span></div>
+        <p id="session-message">從第一題開始，建立你的空間感。</p>
+      </aside>
+    </section>
+
+    <section class="practice-shell" id="practice" aria-labelledby="practice-title">
+      <div class="paper-tape tape-one" aria-hidden="true"></div><div class="paper-tape tape-two" aria-hidden="true"></div>
+      <div class="practice-header">
+        <div>
+          <p class="section-kicker">今日的練習</p>
+          <h2 id="practice-title">讀懂折法，選出展開圖</h2>
+        </div>
+        <div class="question-meta">
+          <span class="category-tag" id="category-tag">標準 · 屋頂折</span>
+          <span class="mono seed-label" id="seed-label"># FL-2407</span>
+        </div>
+      </div>
+
+      <ol class="learning-steps" aria-label="解題流程">
+        <li class="current"><span>01</span><strong>看折法</strong><small>順著箭頭讀</small></li>
+        <li><span>02</span><strong>選摺痕</strong><small>先自己預測</small></li>
+        <li><span>03</span><strong>倒放解答</strong><small>逐步驗證</small></li>
+      </ol>
+
+      <div class="folding-zone">
+        <div class="folding-heading">
+          <div><p class="mono">FOLD SEQUENCE</p><h3>方形紙張依序這樣折疊</h3></div>
+          <button class="hint-button" id="hint-button" type="button" aria-expanded="false" aria-controls="hint-box">
+            <span aria-hidden="true">✦</span> 給我一個提示
+          </button>
+        </div>
+        <div class="hint-box" id="hint-box" hidden role="status"></div>
+        <div class="fold-strip" id="fold-strip" aria-label="折紙步驟圖"></div>
+      </div>
+
+      <div class="question-copy">
+        <span class="question-number" aria-hidden="true">Q</span>
+        <p>若將紙張完全攤平，<strong>哪一張最可能是所有留下的摺痕？</strong></p>
+        <button class="refresh-button" id="new-question" type="button"><span aria-hidden="true">↻</span> 換一題</button>
+      </div>
+
+      <form class="answer-form" id="answer-form" aria-labelledby="answer-title">
+        <fieldset>
+          <legend id="answer-title">選擇你的預測</legend>
+          <p class="form-note">所有內部虛線都代表攤平後留下的摺痕；粗實線只代表紙張外框，沒有其他隱藏語意。</p>
+          <div class="answer-grid" id="answer-grid"></div>
+        </fieldset>
+        <div class="answer-controls">
+          <p class="selection-status" id="selection-status" aria-live="polite">尚未選擇答案</p>
+          <div class="answer-actions">
+            <button class="reveal-button" id="reveal-solution" type="button">卡住了？逐步查看</button>
+            <button class="primary-button" id="submit-answer" type="submit"><span>檢查我的推理</span><span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+      </form>
+
+      <div class="feedback" id="feedback" hidden aria-live="polite"></div>
+
+      <section class="solution-section" id="solution-section" aria-labelledby="solution-title" hidden>
+        <div class="solution-topline"><span class="mono">WORKED SOLUTION / LAYERED CREASE ACCOUNTING</span><span class="result-badge" id="result-badge">逐步解析</span></div>
+        <div class="solution-header">
+          <div><h2 id="solution-title">每一折留下的線，如何被複製</h2><p>後面的折發生在已重疊的紙層上；攤開時，它會依較早的折軸回到每一個對應位置。</p></div>
+          <div class="solution-actions">
+            <label class="solution-color-toggle" for="step-colors"><input id="step-colors" type="checkbox" /><span><strong>依折序上色</strong><small>前幾折保留原色</small></span></label>
+            <label class="solution-color-toggle" for="focus-new-fold"><input id="focus-new-fold" type="checkbox" /><span><strong>聚焦本步新增</strong><small>淡化先前折線</small></span></label>
+            <button class="secondary-button" id="show-all" type="button">顯示全部步驟</button>
+          </div>
+        </div>
+        <div class="solution-workspace">
+          <div class="solution-visual" id="solution-visual" role="img" aria-label="目前的逐步展開圖"></div>
+          <div class="solution-explanation">
+            <p class="step-label mono" id="step-label">STEP 01 / 03</p>
+            <h3 id="step-title"></h3>
+            <p id="step-description"></p>
+            <div class="rule-callout"><span aria-hidden="true">↔</span><p id="rule-text"></p></div>
+            <div class="color-legend" id="color-legend" aria-label="已揭示摺痕的折序色碼" hidden></div>
+            <div class="step-dots" id="step-dots" aria-label="解答步驟導覽"></div>
+            <div class="solution-controls">
+              <button class="ghost-button" id="previous-step" type="button">← 上一步</button>
+              <button class="primary-button compact" id="next-step" type="button">下一步 <span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+        </div>
+        <div class="solution-footer" id="solution-footer"></div>
+      </section>
+    </section>
+
+    <section class="method-section" id="method" aria-labelledby="method-title">
+      <div class="method-intro"><p class="section-kicker">解題工具箱</p><h2 id="method-title">別急著想整張紙，<br />先抓住這 3 個規則。</h2></div>
+      <div class="method-cards">
+        <article><span class="method-no">01</span><h3>逆著順序打開</h3><p>最後折的，最先展開。先還原最近的摺線，避免同時在腦中處理所有層次。</p></article>
+        <article><span class="method-no">02</span><h3>摺線就是鏡子</h3><p>展開一層時，壓在另一側的線段會相對摺線產生鏡像；長度與角度不會改變。</p></article>
+        <article><span class="method-no">03</span><h3>先比位置，再比方向</h3><p>刪去「線在錯格子」的選項，最後才確認斜線朝向。這比先盯著複雜圖樣更快。</p></article>
+      </div>
+    </section>
+
+    <section class="record-section" id="record" aria-labelledby="record-title">
+      <div><p class="section-kicker">你的節奏</p><h2 id="record-title">練習紀錄</h2><p>紀錄只留在這台裝置；不需要登入，也不蒐集個人資料。</p></div>
+      <div class="record-grid">
+        <div><span id="solved-count">0</span><small>完成題數</small></div>
+        <div><span id="correct-count">0</span><small>一次答對</small></div>
+        <div><span id="best-streak">0</span><small>最佳連對</small></div>
+      </div>
+      <button class="text-button reset-record" id="reset-record" type="button">清除本機紀錄</button>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Fold Logic Lab</strong> · 為空間推理而設計的短練習</p>
+    <p>提示與逐步解答採「先預測、後漸進揭示」的練習節奏。</p>
+  </footer>
+
+  <dialog class="confirm-dialog" id="reveal-dialog" aria-labelledby="dialog-title">
+    <form method="dialog">
+      <p class="mono">PAUSE &amp; REVEAL</p>
+      <h2 id="dialog-title">現在要查看逐步解答嗎？</h2>
+      <p>先自己做出預測，再對照倒序展開，通常更容易記住規則。你仍可在解答後換題練習。</p>
+      <div class="dialog-actions"><button value="cancel" class="ghost-button">再想一下</button><button value="reveal" class="primary-button">開始逐步展開 <span aria-hidden="true">→</span></button></div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
