@@ -82,7 +82,9 @@ test("public fold grammars use diagonal or local-corner openings and retain mult
       assert.ok(Math.abs(a) > 1e-7 && Math.abs(b) > 1e-7, `${puzzle.metrics.template} opening crease must be diagonal`);
     });
     const templates = new Set(generated.map(puzzle => puzzle.metrics.template));
-    assert.ok(templates.size >= 2, `${difficulty} needs more than one usable fold grammar`);
+    const openingTriples = new Set(generated.map(puzzle => puzzle.operations.slice(0, 3).map(operation => `${operation.kind}:${operation.motion || "none"}:${operation.fraction?.toFixed?.(3) || "free"}`).join(">")));
+    assert.ok(templates.size >= 3, `${difficulty} needs at least three usable fold grammars, got ${[...templates].join(", ")}`);
+    assert.ok(openingTriples.size >= 6, `${difficulty} needs more variety in the first three folds (${openingTriples.size}/50)`);
     assert.ok(new Set(generated.map(signature)).size >= 44, `${difficulty} grammars must yield varied crease structures`);
   }
   ["上→下", "下→上", "左→右", "右→左", "角落→內部點"].forEach(motion => {
@@ -144,11 +146,15 @@ test("the answer option is calculated from each generated fold program, not sepa
       puzzle.candidates.forEach(candidate => assert.equal(candidate.segments.length, answerCount, `${difficulty}/${seed}/${candidate.id} must match the answer's visual complexity`));
       const wrongCandidates = puzzle.candidates.filter(candidate => candidate.kind !== "correct");
       const answerKeys = new Set(answer.segments.map(visualSegmentKey));
-      const minimumSharedBase = Math.max(1, Math.ceil(answer.segments.length * .25));
+      const earlyAnswer = choiceSegmentsFromCreases(simulationResult.creasesByStep.slice(0, Math.min(3, puzzle.operations.length)).flat());
+      const earlyAnswerKeys = new Set(earlyAnswer.map(visualSegmentKey));
+      const minimumSharedBase = Math.max(1, Math.ceil(answer.segments.length * .4));
+      const minimumEarlyShared = puzzle.operations.length >= 4 ? Math.max(1, Math.ceil(earlyAnswer.length * .55)) : 0;
       wrongCandidates.forEach(candidate => {
         assert.match(candidate.kind, /^wrong-/, `${difficulty}/${seed}/${candidate.id} must encode a realistic incorrect unfolding transformation`);
         assert.ok(creasePatternDistance(answer.segments, candidate.segments) >= 7, `${difficulty}/${seed}/${candidate.id} is too visually similar to the correct pattern`);
         assert.ok(candidate.segments.filter(segment => answerKeys.has(visualSegmentKey(segment))).length >= minimumSharedBase, `${difficulty}/${seed}/${candidate.id} must retain a recognisable shared base pattern`);
+        assert.ok(candidate.segments.filter(segment => earlyAnswerKeys.has(visualSegmentKey(segment))).length >= minimumEarlyShared, `${difficulty}/${seed}/${candidate.id} can be eliminated from only the first three folds`);
       });
       wrongCandidates.forEach((candidate, index) => wrongCandidates.slice(index + 1).forEach(other => {
         assert.ok(creasePatternDistance(candidate.segments, other.segments) >= 4.5, `${difficulty}/${seed}/${candidate.id} and ${other.id} are near-twin distractors`);
