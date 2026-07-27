@@ -377,7 +377,6 @@ function canonicalProgram(profile, rng, templatePreference = "auto") {
   if (template === "mixed-direction") return randomFlowProgram(profile, rng);
   if (template === "gate-roof") return gateRoofProgram(profile, rng);
   if (template === "corner-roof") return cornerRoofProgram(profile, rng);
-  if (template === "asymmetric-roof") return asymmetricRoofProgram(profile, rng);
   if (template === "kite-cascade") return kiteCascadeProgram(profile, rng);
   if (template === "axial-first") return axialFirstProgram(profile, rng);
   return diagonalFirstProgram(profile, rng);

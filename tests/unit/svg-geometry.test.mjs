@@ -82,7 +82,7 @@ test("public fold grammars use diagonal or local-corner openings and retain mult
       assert.ok(Math.abs(a) > 1e-7 && Math.abs(b) > 1e-7, `${puzzle.metrics.template} opening crease must be diagonal`);
     });
     const templates = new Set(generated.map(puzzle => puzzle.metrics.template));
-    const openingTriples = new Set(generated.map(puzzle => puzzle.operations.slice(0, 3).map(operation => `${operation.kind}:${operation.motion || "none"}:${operation.fraction?.toFixed?.(3) || "free"}`).join(">")));
+    const openingTriples = new Set(generated.map(puzzle => puzzle.operations.slice(0, 3).map(operation => `${operation.kind}:${operation.motion || "none"}`).join(">")));
     assert.ok(templates.size >= 3, `${difficulty} needs at least three usable fold grammars, got ${[...templates].join(", ")}`);
     assert.ok(openingTriples.size >= 6, `${difficulty} needs more variety in the first three folds (${openingTriples.size}/50)`);
     assert.ok(new Set(generated.map(signature)).size >= 44, `${difficulty} grammars must yield varied crease structures`);
