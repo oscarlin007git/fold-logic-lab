@@ -377,6 +377,7 @@ function canonicalProgram(profile, rng, templatePreference = "auto") {
   if (template === "mixed-direction") return randomFlowProgram(profile, rng);
   if (template === "gate-roof") return gateRoofProgram(profile, rng);
   if (template === "corner-roof") return cornerRoofProgram(profile, rng);
+  if (template === "asymmetric-roof") return asymmetricRoofProgram(profile, rng);
   if (template === "kite-cascade") return kiteCascadeProgram(profile, rng);
   if (template === "axial-first") return axialFirstProgram(profile, rng);
   return diagonalFirstProgram(profile, rng);
@@ -523,10 +524,12 @@ function transformRawCreases(creasesByStep, firstAffectedIndex, pointTransform) 
 function makeCandidates(operations, simulation, rng) {
   const correctRaw = simulation.creasesByStep.flat();
   const correct = choiceSegmentsFromCreases(correctRaw);
+  const earlyCorrect = choiceSegmentsFromCreases(simulation.creasesByStep.slice(0, Math.min(3, operations.length)).flat());
+  const earlyKeys = new Set(earlyCorrect.map(segment => normalizedSegmentPath(segment.d)));
   // Demo-style items are interesting because the final choices are not cleanly
   // symmetric: users must trace layers, not simply recognise a mirrored icon.
   // Regenerate multi-step items whose answer survives too much D4 symmetry.
-  if (operations.length >= 4 && symmetryScore(correct) > .74) throw new Error("Generator produced an overly symmetric answer pattern.");
+  if (operations.length >= 4 && symmetryScore(correct) > .86) throw new Error("Generator produced an overly symmetric answer pattern.");
   const transformOrder = [...POINT_TRANSFORMS.filter(transform => transform.id !== "r0")];
   const rotation = Math.floor(rng.next() * transformOrder.length);
   const orderedTransforms = [...transformOrder.slice(rotation), ...transformOrder.slice(0, rotation)];
@@ -542,7 +545,8 @@ function makeCandidates(operations, simulation, rng) {
       kind,
       segments,
       distance: creasePatternDistance(correct, segments),
-      shared: sharedSegmentCount(correct, segments)
+      shared: sharedSegmentCount(correct, segments),
+      earlyShared: segments.filter(segment => earlyKeys.has(normalizedSegmentPath(segment.d))).length
     });
   };
 
@@ -603,17 +607,19 @@ function makeCandidates(operations, simulation, rng) {
   // whole late motif. Prefer those shared-base alternatives over global sheet
   // rotations, which make an option obviously unrelated at first glance.
   const minimumShared = Math.max(1, Math.ceil(correct.length * .4));
-  const sharedBasePool = pool.filter(candidate => candidate.shared >= minimumShared);
+  const minimumEarlyShared = operations.length >= 4 ? Math.max(1, Math.ceil(earlyCorrect.length * .55)) : 0;
+  const sharedBasePool = pool.filter(candidate => candidate.shared >= minimumShared && candidate.earlyShared >= minimumEarlyShared);
   // Do not fall back to whole-sheet rotations: if a program cannot supply four
   // distractors sharing its visible base structure, regenerate the program.
-  // Keeping at least ~40% of the answer's lines makes choices hard to reject by
-  // elimination, while the distance floor above keeps every option concrete.
-  if (sharedBasePool.length < 4) throw new Error(`Generator could not create four shared-base candidates (got ${sharedBasePool.length}).`);
+  // Keeping at least ~40% of the answer's lines, plus most first-three-fold
+  // creases, makes choices hard to reject by early-fold elimination while the
+  // distance floor above keeps every option concrete.
+  if (sharedBasePool.length < 4) throw new Error(`Generator could not create four shared-base/early-match candidates (got ${sharedBasePool.length}).`);
   const rankedPool = sharedBasePool;
   const selected = [];
   const targetDistance = 16;
   rankedPool.sort((left, right) =>
-    right.shared - left.shared || Math.abs(left.distance - targetDistance) - Math.abs(right.distance - targetDistance)
+    right.earlyShared - left.earlyShared || right.shared - left.shared || Math.abs(left.distance - targetDistance) - Math.abs(right.distance - targetDistance)
   );
   for (const candidate of rankedPool) {
     if (selected.length === 4) break;
@@ -712,7 +718,7 @@ export function generateFoldPuzzle({ difficulty = "standard", seed = String(Date
     ? ["asymmetric-roof", "mixed-direction", "asymmetric-roof", "corner-roof", "kite-cascade", "mixed-direction", "diagonal-first"]
     : ["asymmetric-roof", "mixed-direction", "asymmetric-roof", "corner-roof", "kite-cascade", "mixed-direction", "gate-roof", "diagonal-first"];
   const templateStart = hashSeed(`${profile.id}:${seed}:grammar`) % publicTemplates.length;
-  for (; generationAttempt < 32; generationAttempt += 1) {
+  for (; generationAttempt < 96; generationAttempt += 1) {
     try {
       rng = seededRandom(`${profile.id}:${seed}:candidate-${generationAttempt}`);
       const selectedTemplate = template === "auto"
