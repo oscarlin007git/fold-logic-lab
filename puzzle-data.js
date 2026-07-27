@@ -243,6 +243,25 @@ function cornerRoofProgram(profile, rng) {
   return { template: "corner-roof", operations };
 }
 
+function asymmetricRoofProgram(profile, rng) {
+  // Reference-inspired roof sequence with deliberate imbalance: two local top
+  // flaps land at different depths, then off-centre vertical/horizontal folds
+  // copy that uneven roof into a grid-like crease pattern. The result keeps the
+  // recognisable "house" scaffold of the demo while avoiding an obvious
+  // left/right or top/bottom answer symmetry.
+  const leftDepth = quantized(rng, profile.id === "starter" ? .34 : .28, profile.id === "starter" ? .43 : .4, 1024);
+  const rightDepth = quantized(rng, profile.id === "starter" ? .24 : .2, profile.id === "starter" ? .34 : .33, 1024);
+  const vertical = quantized(rng, profile.id === "starter" ? .46 : .38, profile.id === "starter" ? .54 : .48, 1024);
+  const horizontal = profile.id === "starter" ? null : quantized(rng, .38, .5, 1024);
+  const operations = [
+    cornerToPointOperation("asym-corner-top-left", { x: 0, y: 0 }, { x: leftDepth, y: leftDepth }),
+    cornerToPointOperation("asym-corner-top-right", { x: 1, y: 0 }, { x: 1 - rightDepth, y: rightDepth }),
+    { id: "asym-roof-vertical", kind: "axial", motion: vertical < .5 ? "左→右" : "右→左", fraction: Math.min(vertical, 1 - vertical), isOffCentre: Math.abs(vertical - .5) > .02, line: { a: 1, b: 0, c: -vertical }, keepSide: vertical < .5 ? 1 : -1 }
+  ];
+  if (profile.folds >= 4) operations.push({ id: "asym-roof-horizontal", kind: "nested", motion: "上→下", fraction: horizontal, isOffCentre: true, line: { a: 0, b: 1, c: -horizontal }, keepSide: 1 });
+  if (profile.folds >= 5) operations.push({ id: "asym-roof-narrow", kind: "nested", motion: "右→左", fraction: quantized(rng, .2, .34, 1024), isOffCentre: true, line: { a: 1, b: 0, c: -quantized(rng, .64, .78, 1024) }, keepSide: -1 });
+  return { template: "asymmetric-roof", operations };
+}
 
 function pointBounds(points) {
   return points.reduce((bounds, point) => ({
@@ -353,10 +372,13 @@ function canonicalProgram(profile, rng, templatePreference = "auto") {
   // They then branch into different grammars—cascade, kite, gate, or corner
   // roof—plus a constrained mixed-direction walk. Each chooses from corner,
   // half, third and quarter folds while the simulator rejects invalid moves.
-  const templates = ["diagonal-first", "kite-cascade", "gate-roof", "corner-roof", "mixed-direction"];
+  const templates = ["diagonal-first", "kite-cascade", "gate-roof", "corner-roof", "asymmetric-roof", "mixed-direction"];
   const template = templatePreference === "auto" ? rng.pick(templates) : templatePreference;
   if (template === "mixed-direction") return randomFlowProgram(profile, rng);
   if (template === "gate-roof") return gateRoofProgram(profile, rng);
+  if (template === "corner-roof") return cornerRoofProgram(profile, rng);
+  if (template === "asymmetric-roof") return asymmetricRoofProgram(profile, rng);
+  if (template === "kite-cascade") return kiteCascadeProgram(profile, rng);
   if (template === "axial-first") return axialFirstProgram(profile, rng);
   return diagonalFirstProgram(profile, rng);
 }
@@ -465,6 +487,15 @@ function transformedChoiceSegment(segment, pointTransform) {
   };
   return { ...segment, d: segmentToPath([transformSvgPoint(first), transformSvgPoint(second)].map(point => ({ x: (point.x - 8) / 84, y: (point.y - 8) / 84 }))) };
 }
+function symmetryScore(segments) {
+  const original = new Set(segments.map(segment => normalizedSegmentPath(segment.d)));
+  return Math.max(...POINT_TRANSFORMS
+    .filter(transform => transform.id !== "r0")
+    .map(transform => {
+      const transformed = segments.map(segment => normalizedSegmentPath(transformedChoiceSegment(segment, transform.point).d));
+      return transformed.filter(key => original.has(key)).length / Math.max(segments.length, 1);
+    }));
+}
 function majorFamilyIndices(segments, family) {
   const info = segments.map((segment, index) => {
     const [first, second] = segmentEndpoints(segment.d);
@@ -493,6 +524,10 @@ function transformRawCreases(creasesByStep, firstAffectedIndex, pointTransform) 
 function makeCandidates(operations, simulation, rng) {
   const correctRaw = simulation.creasesByStep.flat();
   const correct = choiceSegmentsFromCreases(correctRaw);
+  // Demo-style items are interesting because the final choices are not cleanly
+  // symmetric: users must trace layers, not simply recognise a mirrored icon.
+  // Regenerate multi-step items whose answer survives too much D4 symmetry.
+  if (operations.length >= 4 && symmetryScore(correct) > .74) throw new Error("Generator produced an overly symmetric answer pattern.");
   const transformOrder = [...POINT_TRANSFORMS.filter(transform => transform.id !== "r0")];
   const rotation = Math.floor(rng.next() * transformOrder.length);
   const orderedTransforms = [...transformOrder.slice(rotation), ...transformOrder.slice(0, rotation)];
@@ -568,14 +603,19 @@ function makeCandidates(operations, simulation, rng) {
   // Reference-style distractors retain a recognisable base pattern and move a
   // whole late motif. Prefer those shared-base alternatives over global sheet
   // rotations, which make an option obviously unrelated at first glance.
-  const minimumShared = Math.max(1, Math.ceil(correct.length * .25));
+  const minimumShared = Math.max(1, Math.ceil(correct.length * .4));
   const sharedBasePool = pool.filter(candidate => candidate.shared >= minimumShared);
   // Do not fall back to whole-sheet rotations: if a program cannot supply four
   // distractors sharing its visible base structure, regenerate the program.
+  // Keeping at least ~40% of the answer's lines makes choices hard to reject by
+  // elimination, while the distance floor above keeps every option concrete.
   if (sharedBasePool.length < 4) throw new Error(`Generator could not create four shared-base candidates (got ${sharedBasePool.length}).`);
   const rankedPool = sharedBasePool;
   const selected = [];
-  rankedPool.sort((left, right) => right.shared - left.shared || right.distance - left.distance);
+  const targetDistance = 16;
+  rankedPool.sort((left, right) =>
+    right.shared - left.shared || Math.abs(left.distance - targetDistance) - Math.abs(right.distance - targetDistance)
+  );
   for (const candidate of rankedPool) {
     if (selected.length === 4) break;
     const separation = selected.length ? Math.min(...selected.map(item => creasePatternDistance(candidate.segments, item.segments))) : candidate.distance;
@@ -670,8 +710,8 @@ export function generateFoldPuzzle({ difficulty = "standard", seed = String(Date
   // top→down / bottom→up / left→right / right→left and local-corner variety,
   // rather than seeing the familiar diagonal cascade on most refreshes.
   const publicTemplates = profile.id === "standard"
-    ? ["mixed-direction", "mixed-direction", "mixed-direction", "corner-roof", "kite-cascade", "diagonal-first"]
-    : ["mixed-direction", "mixed-direction", "mixed-direction", "corner-roof", "kite-cascade", "gate-roof", "diagonal-first"];
+    ? ["asymmetric-roof", "mixed-direction", "asymmetric-roof", "corner-roof", "kite-cascade", "mixed-direction", "diagonal-first"]
+    : ["asymmetric-roof", "mixed-direction", "asymmetric-roof", "corner-roof", "kite-cascade", "mixed-direction", "gate-roof", "diagonal-first"];
   const templateStart = hashSeed(`${profile.id}:${seed}:grammar`) % publicTemplates.length;
   for (; generationAttempt < 32; generationAttempt += 1) {
     try {
