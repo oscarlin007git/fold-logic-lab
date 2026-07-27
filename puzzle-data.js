@@ -357,6 +357,8 @@ function canonicalProgram(profile, rng, templatePreference = "auto") {
   const template = templatePreference === "auto" ? rng.pick(templates) : templatePreference;
   if (template === "mixed-direction") return randomFlowProgram(profile, rng);
   if (template === "gate-roof") return gateRoofProgram(profile, rng);
+  if (template === "corner-roof") return cornerRoofProgram(profile, rng);
+  if (template === "kite-cascade") return kiteCascadeProgram(profile, rng);
   if (template === "axial-first") return axialFirstProgram(profile, rng);
   return diagonalFirstProgram(profile, rng);
 }
@@ -568,14 +570,19 @@ function makeCandidates(operations, simulation, rng) {
   // Reference-style distractors retain a recognisable base pattern and move a
   // whole late motif. Prefer those shared-base alternatives over global sheet
   // rotations, which make an option obviously unrelated at first glance.
-  const minimumShared = Math.max(1, Math.ceil(correct.length * .25));
+  const minimumShared = Math.max(1, Math.ceil(correct.length * .4));
   const sharedBasePool = pool.filter(candidate => candidate.shared >= minimumShared);
   // Do not fall back to whole-sheet rotations: if a program cannot supply four
   // distractors sharing its visible base structure, regenerate the program.
+  // Keeping at least ~40% of the answer's lines makes choices hard to reject by
+  // elimination, while the distance floor above keeps every option concrete.
   if (sharedBasePool.length < 4) throw new Error(`Generator could not create four shared-base candidates (got ${sharedBasePool.length}).`);
   const rankedPool = sharedBasePool;
   const selected = [];
-  rankedPool.sort((left, right) => right.shared - left.shared || right.distance - left.distance);
+  const targetDistance = 16;
+  rankedPool.sort((left, right) =>
+    right.shared - left.shared || Math.abs(left.distance - targetDistance) - Math.abs(right.distance - targetDistance)
+  );
   for (const candidate of rankedPool) {
     if (selected.length === 4) break;
     const separation = selected.length ? Math.min(...selected.map(item => creasePatternDistance(candidate.segments, item.segments))) : candidate.distance;
